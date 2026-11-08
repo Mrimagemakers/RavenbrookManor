@@ -404,7 +404,7 @@ body[data-input="touch"] #crosshair{width:12px;height:12px;margin:-6px 0 0 -6px}
           <li><b>Silver crossbow</b> Found on board 4. Bolts pass through up to three of the dead.</li>
         </ul>
         <p>Switch with <span class="kbd">1</span>–<span class="kbd">6</span> or the mouse wheel, reload with <span class="kbd">R</span>. The dead sometimes drop ammo; walk over it to pick it up. Hold the attack button to keep firing.</p>
-        <p class="gsmall">Xbox and PlayStation controllers work too: <span class="kbd">RT</span>/<span class="kbd">R2</span> attacks, <span class="kbd">RB</span>/<span class="kbd">R1</span> switches weapons, <span class="kbd">B</span>/<span class="kbd">○</span> reloads, and a light aim assist slows your aim over a target (turn it off in Settings).</p>
+        <p class="gsmall">Xbox and PlayStation controllers work too: <span class="kbd">RT</span>/<span class="kbd">R2</span> attacks, <span class="kbd">RB</span>/<span class="kbd">R1</span> switches weapons, <span class="kbd">B</span>/<span class="kbd">○</span> reloads, and a light aim assist slows your aim over a target (turn it off in Settings). In VR on a Meta Quest, pair the controller in the headset's Bluetooth settings: you aim with your head, and the right stick snap-turns.</p>
         <p class="gsmall">Move with <span class="kbd">WASD</span> or the left stick, look with the mouse or right stick, hold <span class="kbd">Shift</span> to run. Phones: drag on the left to move, drag on the right to look. Every control is listed under "Play on any device" on the title screen.</p>
       </div>
     </section>
@@ -546,10 +546,10 @@ body[data-input="touch"] #crosshair{width:12px;height:12px;margin:-6px 0 0 -6px}
           <span>Put your left thumb down anywhere on the left side and drag to move. Drag anywhere else to look. Hold the big button to keep attacking and tap Swap to change weapons; Use, Echo, Scan and Run sit under your right thumb. Weapons reload on their own. Best in landscape.</span></div>
         <div class="device" data-dev="pad"><b>Xbox &amp; PlayStation controllers</b>
           <span id="padLegend"></span>
-          <span class="pad-pair"><b>Pairing.</b> Xbox: hold the pair button on top until the logo flashes. PlayStation 5 or 4: hold Create (or Share) and the PS button until the light bar flashes. Then pick the controller in your computer, phone or tablet's Bluetooth settings, or just plug it in with a USB cable. On a Meta Quest, play with the Touch controllers instead.</span>
+          <span class="pad-pair"><b>Pairing.</b> Xbox: hold the pair button on top until the logo flashes. PlayStation 5 or 4: hold Create (or Share) and the PS button until the light bar flashes. Then pick the controller in your computer, phone or tablet's Bluetooth settings, or just plug it in with a USB cable. On a Meta Quest, pair it in the headset's Settings › Devices › Bluetooth, then enter VR and press any button on it: look where you want to shoot (a small ring marks your aim), left stick moves, right stick snap-turns.</span>
           <em id="padStatus">No controller found yet. Press any button on it to connect.</em></div>
         <div class="device" data-dev="vr"><b>VR headset</b>
-          <span>In the Meta Quest Browser, tap Enter VR. Left stick move · right stick snap-turn · trigger attack · right <span class="kbd">B</span> next weapon, left <span class="kbd">Y</span> previous · right stick click reload · right grip use · left grip scan · <span class="kbd">A</span>/<span class="kbd">X</span> Echo. Your ammo shows on your left wrist. Controllers buzz when you're hit.</span></div>
+          <span>In the Meta Quest Browser, tap Enter VR. Left stick move · right stick snap-turn · trigger attack · right <span class="kbd">B</span> next weapon, left <span class="kbd">Y</span> previous · right stick click reload · right grip use · left grip scan · <span class="kbd">A</span>/<span class="kbd">X</span> Echo. Your ammo shows on your left wrist. Controllers buzz when you're hit. You can also play in VR with a Bluetooth Xbox or PlayStation controller paired to the headset: aim with your head, left stick move, right stick snap-turn, the same buttons as on a screen. Pick the Touch controllers back up any time to switch back.</span></div>
       </div>
     </div>
 
@@ -3104,11 +3104,12 @@ const VM = (() => {
 function mountWeapon() {
   const xr = renderer.xr.isPresenting;
   let parent = camera;
-  if (xr) { const r = controllers.find(c => c.userData.hand === 'right') || controllers[1]; parent = r; }
+  if (xr && !vrPad) { const r = controllers.find(c => c.userData.hand === 'right') || controllers[1]; parent = r; }
   if (VM.holder.parent !== parent) { VM.holder.parent && VM.holder.parent.remove(VM.holder); parent.add(VM.holder); }
-  if (xr) { VM.holder.position.set(0, -.03, .04); VM.holder.rotation.set(0, 0, 0); VM.holder.scale.setScalar(1); }
+  if (xr && !vrPad) { VM.holder.position.set(0, -.03, .04); VM.holder.rotation.set(0, 0, 0); VM.holder.scale.setScalar(1); }
+  else if (xr) { VM.holder.position.set(.17, -.24, -.38); VM.holder.rotation.set(0, 0, 0); VM.holder.scale.setScalar(1); }
   else { VM.holder.position.set(.2, -.2, -.42); VM.holder.rotation.set(0, 0, 0); VM.holder.scale.setScalar(1); }
-  controllers.forEach(c => { c.children.forEach(ch => { if (ch !== VM.holder && ch.userData.wand) ch.visible = !(xr && c === parent); }); });
+  controllers.forEach(c => { c.children.forEach(ch => { if (ch !== VM.holder && ch.userData.wand) ch.visible = !(xr && c === parent); if (ch.isLine) ch.visible = !vrPad; }); });
 }
 function selectWeapon(i) {
   if (i < 0 || i >= WEAPONS.length || !wpn.owned.has(WEAPONS[i].id) || i === wpn.cur && VM.models[WEAPONS[i].id].visible) return;
@@ -3311,7 +3312,11 @@ const vrWrist = (() => {
       g.fillStyle = '#ebe3cf'; g.font = '38px "Special Elite", monospace'; g.fillText(w.ammo ? `${wpn.mag[w.id] ?? 0} / ${wpn.ammo[w.ammo]}` : '∞', 12, 78);
       g.fillStyle = '#c0322a'; g.fillRect(170, 60, 74 * Math.max(0, state.hp / state.maxHp), 10); t.needsUpdate = true;
     },
-    attach() { const l = controllers.find(c => c.userData.hand === 'left') || controllers[0]; if (m.parent !== l) { m.parent && m.parent.remove(m); l.add(m); } m.visible = true; this.draw(); },
+    attach() {
+      const l = vrPad ? camera : controllers.find(c => c.userData.hand === 'left') || controllers[0]; if (m.parent !== l) { m.parent && m.parent.remove(m); l.add(m); }
+      if (vrPad) { m.position.set(-.3, -.3, -.8); m.rotation.set(0, 0, 0); m.scale.setScalar(1.6); } else { m.position.set(0, .035, .07); m.rotation.set(-1.0, 0, 0); m.scale.setScalar(1); }
+      m.visible = true; this.draw();
+    },
     detach() { m.visible = false; }
   };
 })();
@@ -3664,8 +3669,10 @@ function readPad(gp) {
   return { B, lx: ax(0), ly: ax(1), rx: ax(2), ry: ax(3) };
 }
 window.addEventListener('gamepadconnected', e => {
-  if (PAD_SKIP.test(e.gamepad.id) || renderer.xr.isPresenting) return;
-  padIdx = e.gamepad.index; padName = e.gamepad.id; padBrand = padBrandOf(padName); padPrev = []; setInputMode('pad'); refreshControlsUI();
+  if (PAD_SKIP.test(e.gamepad.id)) return;
+  padIdx = e.gamepad.index; padName = e.gamepad.id; padBrand = padBrandOf(padName); padPrev = [];
+  if (renderer.xr.isPresenting) { vrPanel.flash(padL().name + ' connected: press any button to use it'); rumble(160, .5); return; }
+  setInputMode('pad'); refreshControlsUI();
   toast(padL().name + ' connected', `Press ${padL().menu} to pause · ${padL().y} in menus opens How to play`); rumble(160, .5);
 });
 window.addEventListener('gamepaddisconnected', e => {
@@ -3681,7 +3688,8 @@ function moveFocus(root, dir) {
 let padAimK = 1;
 function pollPad(dt) {
   padIn.mx = padIn.mz = padIn.lx = padIn.ly = 0; padIn.sprint = padIn.echo = padIn.fire = false;
-  const gp = getPad(); if (!gp || renderer.xr.isPresenting) return;
+  const gp = getPad(); if (!gp) return;
+  if (renderer.xr.isPresenting) { pollPadXR(gp, dt); return; }
   // switch to whichever pad is actually being used when more than one is plugged in
   const r = readPad(gp);
   const now = r.B.map((v, i) => v > (i === 6 || i === 7 ? .3 : .5)), prev = padPrev; const edge = i => now[i] && !prev[i]; padPrev = now;
@@ -3730,6 +3738,37 @@ function pollPad(dt) {
   if (edge(9)) pause();
 }
 const _aimO = new V3(), _aimD = new V3();
+/* an Xbox or PlayStation controller inside VR: head aims (a small ring marks it), sticks move and snap-turn */
+let vrPad = false, padSnap = false;
+const gazeRing = new THREE.Mesh(new THREE.RingGeometry(.012, .018, 32), new THREE.MeshBasicMaterial({ color: 0xebe3cf, transparent: true, opacity: .8, depthTest: false, fog: false }));
+gazeRing.position.z = -1.6; gazeRing.renderOrder = 999; gazeRing.visible = false; camera.add(gazeRing);
+const gazeDot = new THREE.Mesh(new THREE.CircleGeometry(.0035, 12), new THREE.MeshBasicMaterial({ color: 0xec7a36, depthTest: false, fog: false }));
+gazeDot.renderOrder = 999; gazeRing.add(gazeDot);
+function setVrPad(on) {
+  if (vrPad === on) return; vrPad = on; mountWeapon();
+  if (renderer.xr.isPresenting) vrPanel.flash(on ? padL().name + ' in use: look to aim, ' + padL().rt + ' attacks' : 'Touch controllers in use');
+}
+function pollPadXR(gp, dt) {
+  const r = readPad(gp);
+  const now = r.B.map((v, i) => v > (i === 6 || i === 7 ? .3 : .5)), prev = padPrev; const edge = i => now[i] && !prev[i]; padPrev = now;
+  const dz = v => Math.abs(v) < .18 ? 0 : (v - Math.sign(v) * .18) / .82;
+  const lx = dz(r.lx), ly = dz(r.ly), rx = dz(r.rx);
+  if (lx || ly || rx || now.some(Boolean)) setVrPad(true);
+  if (!vrPad) return;
+  if (state.ended) { if ((edge(0) || edge(7)) && performance.now() - endAt > 4000) startGame(); return; }
+  if (!state.playing || state.paused) return;
+  padIn.mx = lx; padIn.mz = ly;
+  // snap turn keeps VR comfortable; the head does the looking
+  if (Math.abs(rx) > .7) { if (!padSnap) { yaw -= Math.sign(rx) * Math.PI / 6; padSnap = true; snapLatch = true; setTimeout(() => { snapLatch = false; }, 120); } } else if (Math.abs(rx) < .4) padSnap = false;
+  padIn.sprint = now[4] || now[10]; padIn.echo = now[2]; padIn.fire = now[7];
+  if (edge(7)) fireFromCamera();
+  if (edge(5) || edge(15)) cycleWeapon(1);
+  if (edge(14)) cycleWeapon(-1);
+  if (edge(0)) use();
+  if (edge(3)) scan();
+  if (edge(1) || edge(6)) reloadWeapon();
+  if (edge(2) && settings.echoToggle) echoToggle = !echoToggle;
+}
 function aimOnTarget() {
   camera.getWorldPosition(_aimO); camera.getWorldDirection(_aimD);
   for (const z of zombies) {
@@ -3768,8 +3807,8 @@ const controllers = [0, 1].map(i => {
   const tipG = glow(i ? 0xff9040 : 0x5de0a0, .08, 1); tipG.position.z = -.1; tipG.userData.wand = true; c.add(tipG);
   const ray = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new V3(0, 0, 0), new V3(0, 0, -4)]), new THREE.LineBasicMaterial({ color: 0xff9040, transparent: true, opacity: .35 }));
   c.add(ray);
-  c.addEventListener('connected', e => { c.userData.hand = e.data.handedness; });
-  c.addEventListener('selectstart', () => { if (state.ended) { if (performance.now() - endAt > 4000) startGame(); return; } if (!state.playing || state.paused) return; c.getWorldPosition(_o); c.getWorldQuaternion(_q); fireFrom(_o.clone(), new V3(0, 0, -1).applyQuaternion(_q)); });
+  c.addEventListener('connected', e => { c.userData.hand = e.data.handedness; c.userData.isHand = !!e.data.hand; });
+  c.addEventListener('selectstart', () => { if (c.userData.isHand && vrPad) return; setVrPad(false); if (state.ended) { if (performance.now() - endAt > 4000) startGame(); return; } if (!state.playing || state.paused) return; c.getWorldPosition(_o); c.getWorldQuaternion(_q); fireFrom(_o.clone(), new V3(0, 0, -1).applyQuaternion(_q)); });
   c.addEventListener('squeezestart', () => { if (!state.playing || state.paused) return; if (c.userData.hand === 'left') scan(); else use(); });
   rig.add(c); return c;
 });
@@ -3777,7 +3816,7 @@ let snapLatch = false; const vrPrev = {}; let wristT = 0, endAt = 0;
 function xrUnsupported(msg) { vrBtn.disabled = true; vrBtn.textContent = 'VR not available here'; vrNote.textContent = msg; }
 if ('xr' in navigator && navigator.xr.isSessionSupported) {
   navigator.xr.isSessionSupported('immersive-vr').then(ok => {
-    if (ok) { vrBtn.disabled = false; vrBtn.textContent = 'Enter VR'; vrNote.textContent = 'Headset detected. Trigger attacks, B and Y switch weapons, grips use and scan, A or X holds Echo Shift.'; }
+    if (ok) { vrBtn.disabled = false; vrBtn.textContent = 'Enter VR'; vrNote.textContent = 'Headset detected. Trigger attacks, B and Y switch weapons, grips use and scan, A or X holds Echo Shift. A Bluetooth Xbox or PlayStation controller paired to the headset works in VR too.'; }
     else xrUnsupported('No headset found. On a Quest, open this page in the Meta Quest Browser and tap Enter VR, or play the multiplayer version in Horizon Worlds.');
   }).catch(() => xrUnsupported('This window blocks WebXR. Open the page directly in the Meta Quest Browser, or play in Horizon Worlds.'));
 } else xrUnsupported('This browser has no WebXR. On a Quest, open this page in the Meta Quest Browser, or play in Horizon Worlds.');
@@ -3789,7 +3828,7 @@ function enterVR() {
     Promise.resolve(renderer.xr.setSession(s)).then(() => { try { const l = s.renderState.baseLayer; if (l && 'fixedFoveation' in l) l.fixedFoveation = 1; } catch (e) {} });
     camera.position.set(0, 0, 0); camera.rotation.set(0, 0, 0);
     setInputMode('vr'); applyGraphics(); startGame(); vrPanel.mesh.visible = true; vrPanel.set(objTitle, objBody);
-    s.addEventListener('end', () => { applyGraphics(); mountWeapon(); vrWrist.detach(); vrPage.visible = false; setInputMode(padIdx != null ? 'pad' : matchMedia('(pointer:coarse)').matches ? 'touch' : 'kbm'); vrPanel.mesh.visible = false; vrRings.target.visible = vrRings.move.visible = false; camera.position.set(0, 1.7, 0); onResize(); });
+    s.addEventListener('end', () => { vrPad = false; gazeRing.visible = false; applyGraphics(); mountWeapon(); vrWrist.detach(); vrPage.visible = false; setInputMode(padIdx != null ? 'pad' : matchMedia('(pointer:coarse)').matches ? 'touch' : 'kbm'); vrPanel.mesh.visible = false; vrRings.target.visible = vrRings.move.visible = false; camera.position.set(0, 1.7, 0); onResize(); });
   }).catch(err => { vrNote.textContent = 'VR could not start in this window (' + (err && err.name || 'blocked') + '). Open the page in the Meta Quest Browser, or play in Horizon Worlds.'; });
 }
 vrBtn.addEventListener('click', () => { $('#vrVig').checked = settings.vignette; $('#vrSafety').hidden = false; setTimeout(() => $('#vrGo').focus(), 30); });
@@ -3940,6 +3979,8 @@ function game(dt) {
     for (const src of s.inputSources) {
       const gp = src.gamepad; if (!gp) continue; const ax = gp.axes;
       const x = ax.length > 2 ? ax[2] : ax[0], y = ax.length > 2 ? ax[3] : ax[1];
+      if (vrPad && !src.hand && (Math.abs(x) > .5 || Math.abs(y) > .5 || gp.buttons.some(b => b && b.pressed))) setVrPad(false);
+      if (vrPad) continue;
       if (src.handedness === 'left') { if (Math.abs(x) > .15) mx += x; if (Math.abs(y) > .15) mz += y; }
       else if (src.handedness === 'right') { if (Math.abs(x) > .7) { if (!snapLatch) { yaw -= Math.sign(x) * Math.PI / 6; snapLatch = true; } } else snapLatch = false; }
       if (gp.buttons[4] && gp.buttons[4].pressed) vrEcho = true;
@@ -4028,7 +4069,7 @@ function game(dt) {
   if (D().regen && hurtCd < -3 && state.hp > 0) state.hp = Math.min(state.maxHp, state.hp + D().regen * dt);
   updatePickups(dt, pp); updatePlayerShots(dt); animateWeapon(dt);
   if (vrPageT > 0) { vrPageT -= dt; if (vrPageT <= 0) vrPage.visible = false; }
-  if (xr) { wristT -= dt; const r = controllers.find(c => c.userData.hand === 'right'), l = controllers.find(c => c.userData.hand === 'left'); if (r && VM.holder.parent !== r) mountWeapon(); if (l && vrWrist.mesh.parent !== l) vrWrist.attach(); if (wristT <= 0) { wristT = .5; vrWrist.draw(); } }
+  if (xr) { wristT -= dt; const r = controllers.find(c => c.userData.hand === 'right'), l = controllers.find(c => c.userData.hand === 'left'); if (vrPad ? VM.holder.parent !== camera : (r && VM.holder.parent !== r)) mountWeapon(); if (vrPad ? vrWrist.mesh.parent !== camera : (l && vrWrist.mesh.parent !== l)) vrWrist.attach(); gazeRing.visible = vrPad && state.playing && !state.paused; if (wristT <= 0) { wristT = .5; vrWrist.draw(); } }
   if (boss) boss.update(dt, pp);
   updateProjectiles(dt, pp);
   animateHeroes(dt, pp);
