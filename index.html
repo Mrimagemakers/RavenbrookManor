@@ -364,6 +364,25 @@ body[data-input="touch"] #crosshair{width:12px;height:12px;margin:-6px 0 0 -6px}
   </div>
 </div>
 
+<div class="overlay" id="cbSetup" hidden role="dialog" aria-modal="true" aria-labelledby="cbTitle">
+  <div class="gate-card">
+    <div class="eyebrow">Phone VR viewer</div>
+    <h2 id="cbTitle">Slip your phone into the viewer</h2>
+    <ul class="safety">
+      <li>Works with Google Cardboard and other headsets you slide a phone into. Turn the phone sideways with the screen facing the lenses, and turn the screen brightness up.</li>
+      <li><b>Play:</b> look at what you want. Tap the screen (or press the viewer's button) to attack, or to use what is in front of you. Hold it down to walk where you are looking.</li>
+      <li>Look down and tap to switch weapons. Look down and hold for Echo Shift. Look up and tap to scan.</li>
+      <li><b>Watch:</b> a hands-free tour through all eight boards. Just look around; tap to recentre the view.</li>
+      <li>A Bluetooth Xbox or PlayStation controller paired to the phone works in the viewer too.</li>
+      <li>Play seated or standing still, in a clear space. Take a break every 30 minutes, and stop if you feel dizzy or sick.</li>
+    </ul>
+    <p class="gate-err" id="cbErr" hidden></p>
+    <div class="actions"><button class="btn primary" id="cbPlay" type="button">Play in the viewer</button><button class="btn" id="cbWatch" type="button">Watch the tour</button><button class="btn" id="cbCancel" type="button">Not now</button></div>
+  </div>
+</div>
+<button id="cbExit" type="button" hidden>Exit viewer</button>
+<div id="cbRotate" hidden>Turn your phone sideways<small>then slide it into the viewer</small></div>
+
 <div class="overlay" id="guide" hidden role="dialog" aria-modal="true" aria-labelledby="guideTitle">
   <div class="guide-card">
     <div class="guide-head">
@@ -405,6 +424,7 @@ body[data-input="touch"] #crosshair{width:12px;height:12px;margin:-6px 0 0 -6px}
         </ul>
         <p>Switch with <span class="kbd">1</span>–<span class="kbd">6</span> or the mouse wheel, reload with <span class="kbd">R</span>. The dead sometimes drop ammo; walk over it to pick it up. Hold the attack button to keep firing.</p>
         <p class="gsmall">Xbox and PlayStation controllers work too: <span class="kbd">RT</span>/<span class="kbd">R2</span> attacks, <span class="kbd">RB</span>/<span class="kbd">R1</span> switches weapons, <span class="kbd">B</span>/<span class="kbd">○</span> reloads, and a light aim assist slows your aim over a target (turn it off in Settings). In VR on a Meta Quest, pair the controller in the headset's Bluetooth settings: you aim with your head, and the right stick snap-turns.</p>
+        <p class="gsmall">Got a Google Cardboard or another phone viewer? Tap Phone VR viewer on the title screen. Look to aim, tap to attack or use, hold to walk; look down and tap to switch weapons, look up and tap to scan.</p>
         <p class="gsmall">Move with <span class="kbd">WASD</span> or the left stick, look with the mouse or right stick, hold <span class="kbd">Shift</span> to run. Phones: drag on the left to move, drag on the right to look. Every control is listed under "Play on any device" on the title screen.</p>
       </div>
     </section>
@@ -484,9 +504,11 @@ body[data-input="touch"] #crosshair{width:12px;height:12px;margin:-6px 0 0 -6px}
       <button class="btn primary" id="playBtn" type="button">Enter Ravenbrook</button>
       <button class="btn" id="guideBtn" type="button">How to play</button>
       <button class="btn" id="vrBtn" type="button" disabled>Checking VR…</button>
+      <button class="btn" id="cbBtn" type="button" hidden>Phone VR viewer</button>
       <a class="btn witch" href="https://horizon.meta.com/world/10163428610499954/" target="_blank" rel="noopener">Horizon Worlds ↗</a>
     </div>
     <div id="vrNote">Looking for a headset…</div>
+    <div id="cbNote" hidden>Have a Google Cardboard or another viewer you slide a phone into? Tap Phone VR viewer to play or watch in 3D.</div>
 
     <div>
       <p class="section-label">Choose who walks in first</p>
@@ -550,6 +572,8 @@ body[data-input="touch"] #crosshair{width:12px;height:12px;margin:-6px 0 0 -6px}
           <em id="padStatus">No controller found yet. Press any button on it to connect.</em></div>
         <div class="device" data-dev="vr"><b>VR headset</b>
           <span>In the Meta Quest Browser, tap Enter VR. Left stick move · right stick snap-turn · trigger attack · right <span class="kbd">B</span> next weapon, left <span class="kbd">Y</span> previous · right stick click reload · right grip use · left grip scan · <span class="kbd">A</span>/<span class="kbd">X</span> Echo. Your ammo shows on your left wrist. Controllers buzz when you're hit. You can also play in VR with a Bluetooth Xbox or PlayStation controller paired to the headset: aim with your head, left stick move, right stick snap-turn, the same buttons as on a screen. Pick the Touch controllers back up any time to switch back.</span></div>
+        <div class="device" data-dev="cardboard"><b>Phone VR viewer</b>
+          <span>Google Cardboard and other slide-in headsets. On your phone, tap Phone VR viewer on this screen, then turn the phone sideways and slide it in. Look to aim · tap (or the viewer's button) attacks or uses what you look at · hold to walk · look down and tap to switch weapons, look down and hold for Echo · look up and tap to scan. Or pick Watch for a hands-free tour of all eight boards.</span></div>
       </div>
     </div>
 
@@ -753,6 +777,7 @@ scene.fog = new THREE.FogExp2(FOG_NIGHT.getHex(), 0.026);
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 420);
 const rig = new THREE.Group();
 rig.add(camera); scene.add(rig);
+let cbOn = false, cbWalk = false; // phone VR viewer (Cardboard) is running / its button is held to walk
 camera.position.set(0, 1.7, 0);
 
 function canvasTex(w, h, draw) {
@@ -3108,6 +3133,7 @@ function mountWeapon() {
   if (VM.holder.parent !== parent) { VM.holder.parent && VM.holder.parent.remove(VM.holder); parent.add(VM.holder); }
   if (xr && !vrPad) { VM.holder.position.set(0, -.03, .04); VM.holder.rotation.set(0, 0, 0); VM.holder.scale.setScalar(1); }
   else if (xr) { VM.holder.position.set(.17, -.24, -.38); VM.holder.rotation.set(0, 0, 0); VM.holder.scale.setScalar(1); }
+  else if (cbOn) { VM.holder.position.set(.2, -.32, -.62); VM.holder.rotation.set(0, 0, 0); VM.holder.scale.setScalar(.85); }
   else { VM.holder.position.set(.2, -.2, -.42); VM.holder.rotation.set(0, 0, 0); VM.holder.scale.setScalar(1); }
   controllers.forEach(c => { c.children.forEach(ch => { if (ch !== VM.holder && ch.userData.wand) ch.visible = !(xr && c === parent); if (ch.isLine) ch.visible = !vrPad; }); });
 }
@@ -3248,7 +3274,7 @@ function animateWeapon(dt) {
   }
   if (w.id === 'flare') VM.models.flare.userData.core.scale.setScalar(.9 + Math.random() * .2);
   if (w.id === 'crossbow' && VM.models.crossbow.userData.bolt) VM.models.crossbow.userData.bolt.visible = wpn.mag.crossbow > 0 && wpn.reloading <= 0;
-  if (!renderer.xr.isPresenting) { const s = Math.sin(bob) * .006; VM.holder.position.set(.2 + s, -.2 + Math.abs(s), -.42); }
+  if (!renderer.xr.isPresenting) { const s = Math.sin(bob) * .006; if (cbOn) VM.holder.position.set(.2 + s, -.32 + Math.abs(s), -.62); else VM.holder.position.set(.2 + s, -.2 + Math.abs(s), -.42); }
 }
 
 /* pickups: weapons laid out on their boards, ammo from the dead */
@@ -3313,8 +3339,8 @@ const vrWrist = (() => {
       g.fillStyle = '#c0322a'; g.fillRect(170, 60, 74 * Math.max(0, state.hp / state.maxHp), 10); t.needsUpdate = true;
     },
     attach() {
-      const l = vrPad ? camera : controllers.find(c => c.userData.hand === 'left') || controllers[0]; if (m.parent !== l) { m.parent && m.parent.remove(m); l.add(m); }
-      if (vrPad) { m.position.set(-.3, -.3, -.8); m.rotation.set(0, 0, 0); m.scale.setScalar(1.6); } else { m.position.set(0, .035, .07); m.rotation.set(-1.0, 0, 0); m.scale.setScalar(1); }
+      const l = (vrPad || cbOn) ? camera : controllers.find(c => c.userData.hand === 'left') || controllers[0]; if (m.parent !== l) { m.parent && m.parent.remove(m); l.add(m); }
+      if (vrPad || cbOn) { m.position.set(-.3, -.3, -.8); m.rotation.set(0, 0, 0); m.scale.setScalar(1.6); } else { m.position.set(0, .035, .07); m.rotation.set(-1.0, 0, 0); m.scale.setScalar(1); }
       m.visible = true; this.draw();
     },
     detach() { m.visible = false; }
@@ -3422,7 +3448,7 @@ function startBoard(n) {
 }
 function startGame() {
   if (!$('#gate').hidden) return;
-  { let first = false; try { first = !GUIDE.seen(); } catch (e) {} if (first && !renderer.xr.isPresenting) { GUIDE.open(0, startGame); return; } }
+  { let first = false; try { first = !GUIDE.seen(); } catch (e) {} if (first && !renderer.xr.isPresenting && !cbOn) { GUIDE.open(0, startGame); return; } }
   if (!started || state.ended) startBoard(1); else { Audio.start(); enterPlay(); }
 }
 function enterPlay() {
@@ -3444,7 +3470,7 @@ function revive() {
 }
 function die() {
   state.paused = true; exitPointer(); $('#deathScreen').hidden = false; Audio.wail(); rumble(500, 1); refreshControlsUI();
-  if (renderer.xr.isPresenting) { toast('The loop resets', 'You wake at the start of the board'); setTimeout(() => { revive(); refreshObjective(); }, 3000); }
+  if (renderer.xr.isPresenting || cbOn) { toast('The loop resets', 'You wake at the start of the board'); setTimeout(() => { revive(); refreshObjective(); }, 3000); }
   if (inputMode === 'pad') setTimeout(() => $('#reviveBtn').focus(), 60);
 }
 function renderBoardList() {
@@ -3477,8 +3503,8 @@ const padIn = { mx: 0, mz: 0, lx: 0, ly: 0, sprint: false, echo: false, fire: fa
 let padIdx = null, padName = '', padPrev = [], padNavT = 0;
 const shortPad = id => (id || '').replace(/\(.*?\)/g, '').replace(/Vendor.*$/i, '').trim() || 'Game controller';
 
-function setInputMode(m) { if (inputMode === m) return; inputMode = m; document.body.dataset.input = m; refreshControlsUI(); }
-function promptKey() { return { kbm: 'F', pad: (PADLBL[padBrand] || PADLBL.xbox).a, touch: 'USE', vr: 'Grip' }[inputMode] || 'F'; }
+function setInputMode(m) { if (cbOn && (m === 'touch' || m === 'kbm')) return; if (inputMode === m) return; inputMode = m; document.body.dataset.input = m; refreshControlsUI(); }
+function promptKey() { return { kbm: 'F', pad: (PADLBL[padBrand] || PADLBL.xbox).a, touch: 'USE', vr: 'Grip', cardboard: 'Tap' }[inputMode] || 'F'; }
 function refreshControlsUI() {
   const playing = state.playing && !state.paused;
   $('#touch').hidden = !(playing && inputMode === 'touch');
@@ -3971,7 +3997,7 @@ function game(dt) {
   if (keys.KeyW || keys.ArrowUp) mz -= 1; if (keys.KeyS || keys.ArrowDown) mz += 1;
   if (keys.KeyA || keys.ArrowLeft) mx -= 1; if (keys.KeyD || keys.ArrowRight) mx += 1;
   mx += joy.x; mz += joy.y; vrEcho = false;
-  mx += padIn.mx; mz += padIn.mz;
+  mx += padIn.mx; mz += padIn.mz; if (cbWalk) mz -= 1;
   if (padIn.lx || padIn.ly) { yaw -= padIn.lx * dt * 2.8 * settings.sens; pitch -= padIn.ly * dt * 2.1 * settings.sens * inv(); pitch = Math.max(-1.35, Math.min(1.35, pitch)); }
   if ((padIn.fire || touchFire || mouseHeld && locked) && !state.bell.active) fireFromCamera();
   if (xr) {
@@ -3996,7 +4022,7 @@ function game(dt) {
   playSecs += dt;
   if (settings.breaks && playSecs > nextBreak) { nextBreak += 45 * 60; toast('Time for a break?', 'You have been in Ravenbrook for ' + Math.round(playSecs / 60) + ' minutes. Rest your eyes; the dead will wait.'); }
   let dirYaw = yaw;
-  if (xr) { camera.getWorldDirection(tmpDir); dirYaw = Math.atan2(-tmpDir.x, -tmpDir.z); }
+  if (xr || cbOn) { camera.getWorldDirection(tmpDir); dirYaw = Math.atan2(-tmpDir.x, -tmpDir.z); }
   const sprint = keys.ShiftLeft || keys.ShiftRight || padIn.sprint || touchRun;
   const sp = (sprint ? 7 : 4.3) * dt * (state.bell.active ? .4 : 1);
   const fx = -Math.sin(dirYaw), fz = -Math.cos(dirYaw), rx = Math.cos(dirYaw), rz = -Math.sin(dirYaw);
@@ -4093,7 +4119,7 @@ function game(dt) {
     const mv = $('#ringMove'); mv.style.width = mv.style.height = size + 'px';
     const inWin = Math.abs(size - 120) < 17; mv.style.borderColor = inWin ? 'var(--echo)' : 'var(--witch)';
     if (ph < b.lastPhase) Audio.tick(); b.lastPhase = ph;
-    if (xr) { vrRings.target.visible = vrRings.move.visible = true; vrRings.move.scale.setScalar(size / 120); vrRings.move.material.color.setHex(inWin ? 0xcaa36a : 0x5de0a0); }
+    if (xr || cbOn) { vrRings.target.visible = vrRings.move.visible = true; vrRings.move.scale.setScalar(size / 120); vrRings.move.material.color.setHex(inWin ? 0xcaa36a : 0x5de0a0); }
   } else if (vrRings.target.visible) vrRings.target.visible = vrRings.move.visible = false;
 
   // interact prompt
@@ -4102,7 +4128,7 @@ function game(dt) {
     const label = n.act ? (n.it.dyn ? n.it.dyn() : n.it.label) : n.hint;
     ui.prompt.hidden = false; ui.prompt.classList.toggle('hint', !n.act);
     ui.prompt.innerHTML = n.act ? `<b>${promptKey()}</b>${label}` : label;
-    vrPanel.prompt(n.act ? `Grip: ${label}` : label);
+    vrPanel.prompt(n.act ? `${xr ? 'Grip' : cbOn && inputMode !== 'pad' ? 'Tap' : promptKey()}: ${label}` : label);
   } else { ui.prompt.hidden = true; vrPanel.prompt(''); }
 
   // touch button states
@@ -4115,6 +4141,170 @@ function game(dt) {
 
 let frameN = 0;
 let perfCap = LITE ? .75 : 1, perfAvg = 1 / 72, perfT = 0, frameErr = 0;
+/* ================= Phone VR viewers: Google Cardboard and other slide-in headsets =================
+   Split-screen stereo with head tracking from the phone's motion sensor. One input (the screen tap that
+   the viewer's button makes): tap acts on what you look at, hold walks; look down or up for the rest.
+   "Watch" is a hands-free tour of the eight boards. */
+const CB = (() => {
+  const stereo = new THREE.StereoCamera(); stereo.aspect = .5; stereo.eyeSep = .064;
+  const q0 = new THREE.Quaternion(), q1 = new THREE.Quaternion(-Math.sqrt(.5), 0, 0, Math.sqrt(.5)), eul = new THREE.Euler(), zee = new V3(0, 0, 1), up = new V3(0, 1, 0);
+  const align = new THREE.Quaternion(), sensor = new THREE.Quaternion(), _f = new V3(), _sz = new THREE.Vector2();
+  let ori = null, mode = 'play', needAlign = true, wristT = 0, fs = false, denied = false;
+  let press = null; // { id, t, walk, echo }
+  const fade = new THREE.Mesh(new THREE.SphereGeometry(.3, 16, 12), new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0, side: THREE.BackSide, depthTest: false, depthWrite: false, fog: false }));
+  fade.renderOrder = 1001; fade.visible = false; camera.add(fade);
+  const deg = THREE.MathUtils.degToRad;
+  function onOri(ev) { if (ev.alpha == null && ev.beta == null) return; ori = ev; }
+  function screenAngle() { return deg((screen.orientation && screen.orientation.angle) || window.orientation || 0); }
+  function readSensor() {
+    eul.set(deg(ori.beta || 0), deg(ori.alpha || 0), -deg(ori.gamma || 0), 'YXZ');
+    sensor.setFromEuler(eul).multiply(q1).multiply(q0.setFromAxisAngle(zee, -screenAngle()));
+  }
+  function heading(q) { _f.set(0, 0, -1).applyQuaternion(q); return Math.atan2(-_f.x, -_f.z); }
+  const headPitch = () => { camera.getWorldDirection(_f); return Math.asin(Math.max(-1, Math.min(1, _f.y))); };
+  const isPhone = () => matchMedia('(pointer:coarse)').matches && 'DeviceOrientationEvent' in window;
+
+  /* ---------- the tour ---------- */
+  let stops = null, stopI = 0, stopT = 0;
+  const STOP = 16, FADE = 1.2;
+  function buildStops() {
+    stops = BOARDS.map((b, i) => {
+      const s = new V3(b.start[0], 0, b.start[1]); let t = null;
+      const keep = state.board; try { state.board = i + 1; t = objectivePos(s); } catch (e) {} state.board = keep;
+      t = t || new V3(0, 0, 30); const face = Math.atan2(-(t.x - s.x), -(t.z - s.z));
+      return { s, face, name: b.name, n: i + 1 };
+    });
+  }
+  function showStop() { const st = stops[stopI]; vrPanel.set('Watching · board ' + st.n + ' of 8', st.name); }
+  function tour(dt) {
+    if (!stops) { buildStops(); stopI = 0; stopT = 0; showStop(); }
+    stopT += dt; if (stopT > STOP) { stopT = 0; stopI = (stopI + 1) % stops.length; showStop(); }
+    const st = stops[stopI], k = stopT / STOP;
+    // a slow walk forward through each board
+    const fx = -Math.sin(st.face), fz = -Math.cos(st.face), d = k * 5;
+    const x = st.s.x + fx * d, z = st.s.z + fz * d;
+    rig.position.set(x, gh(x, z), z); rig.rotation.set(0, st.face, 0); camera.position.set(0, 1.7, 0);
+    const a = stopT < FADE ? 1 - stopT / FADE : stopT > STOP - FADE ? (stopT - (STOP - FADE)) / FADE : 0;
+    fade.visible = a > .01; fade.material.opacity = a;
+  }
+
+  /* ---------- one-button play ---------- */
+  function act() {
+    if (state.ended) { if (performance.now() - endAt > 4000) startGame(); return; }
+    if (!state.playing || state.paused) return;
+    const p = headPitch();
+    if (p < -1.0) { cycleWeapon(1); return; }
+    if (p > 1.0) { scan(); return; }
+    if (state.bell.active) { use(); return; }
+    if (!aimOnTarget()) { const n = nearestInteract(playerPos()); if (n && n.act) { use(); return; } }
+    fireFromCamera();
+  }
+  function down(e) {
+    if (!cbOn) return;
+    if (e.target && e.target.closest && e.target.closest('#cbExit')) return;
+    e.stopPropagation(); e.preventDefault();
+    if (mode === 'watch') { needAlign = true; vrPanel.flash('View recentred'); return; }
+    press = { id: e.pointerId, t: setTimeout(() => { if (!press) return; if (headPitch() < -1.0) { press.echo = true; touchEchoHeld = true; } else { press.walk = true; cbWalk = true; } }, 280) };
+  }
+  function upH(e) {
+    if (!cbOn) return;
+    if (e.target && e.target.closest && e.target.closest('#cbExit')) return;
+    e.stopPropagation();
+    if (!press || e.pointerId !== press.id) return;
+    clearTimeout(press.t);
+    if (!press.walk && !press.echo) act();
+    if (press.echo) touchEchoHeld = false;
+    cbWalk = false; press = null;
+  }
+  const block = e => { if (cbOn && ori && !(e.target && e.target.closest && e.target.closest('#cbExit'))) e.stopPropagation(); };
+  window.addEventListener('pointerdown', down, true);
+  window.addEventListener('pointerup', upH, true);
+  window.addEventListener('pointercancel', upH, true);
+  window.addEventListener('pointermove', block, true);
+  window.addEventListener('touchstart', block, true);
+
+  /* ---------- in and out ---------- */
+  const el = id => document.getElementById(id);
+  function enter(m) {
+    mode = m; el('cbErr').hidden = true;
+    // fullscreen and the iOS motion permission both need this tap, so ask for them straight away
+    const root = document.documentElement;
+    try { const r = (root.requestFullscreen || root.webkitRequestFullscreen).call(root, { navigationUI: 'hide' }); if (r && r.then) r.then(() => { fs = true; try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} }).catch(() => {}); } catch (e) {}
+    let perm = Promise.resolve('granted');
+    try { if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) perm = DeviceOrientationEvent.requestPermission(); } catch (e) {}
+    // some browsers answer "denied" yet still send the sensor; start anyway and say so in the viewer if nothing arrives
+    Promise.resolve(perm).catch(() => 'denied').then(r => { denied = r !== 'granted'; start(); });
+  }
+  function start() {
+    window.addEventListener('deviceorientation', onOri);
+    el('cbSetup').hidden = true; el('cbExit').hidden = false;
+    cbOn = true; needAlign = true; ori = null; document.body.classList.add('cardboard');
+    camera.fov = 85; camera.updateProjectionMatrix();
+    setInputMode('cardboard'); Audio.start(); applyGraphics();
+    vrPanel.mesh.visible = true;
+    if (mode === 'watch') {
+      stops = null; ui.menu.hidden = true; vrPanel.set('Watching', 'Look around');
+    } else {
+      startGame(); vrPanel.set(objTitle, objBody); mountWeapon(); vrWrist.attach();
+      setTimeout(() => { if (cbOn) vrPanel.flash('Tap to attack or use · hold to walk'); }, 1500);
+    }
+    setTimeout(() => { if (cbOn && !ori) vrPanel.flash(denied ? 'Allow motion access in your browser settings' : 'No motion sensor found: drag to look'); }, 2500);
+  }
+  function exitFs() { try { if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document).catch(() => {}); } catch (e) {} try { screen.orientation.unlock(); } catch (e) {} fs = false; }
+  function exit() {
+    if (!cbOn) return;
+    cbOn = false; cbWalk = false; press = null; touchEchoHeld = false;
+    window.removeEventListener('deviceorientation', onOri);
+    document.body.classList.remove('cardboard', 'cb-portrait'); el('cbExit').hidden = true; el('cbRotate').hidden = true;
+    camera.fov = 70; camera.updateProjectionMatrix(); camera.rotation.set(pitch, 0, 0); mountWeapon();
+    fade.visible = false; gazeRing.visible = false; vrPanel.mesh.visible = false; vrWrist.detach();
+    vrRings.target.visible = vrRings.move.visible = false;
+    renderer.setScissorTest(false); onResize(); applyGraphics();
+    setInputMode(padIdx != null ? 'pad' : 'touch');
+    if (mode === 'watch') ui.menu.hidden = false; else if (state.playing) pause();
+    exitFs();
+  }
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && fs && cbOn) { fs = false; exit(); } });
+  window.addEventListener('keydown', e => { if (cbOn && e.code === 'Escape') exit(); });
+
+  /* ---------- per frame ---------- */
+  function tick(dt) {
+    if (!cbOn) return;
+    const portrait = innerHeight > innerWidth * 1.05; el('cbRotate').hidden = !portrait;
+    if (mode === 'watch') { tour(dt); VM.holder.visible = false; gazeRing.visible = false; }
+    else {
+      if (state.playing && state.paused && $('#deathScreen').hidden && !state.ended) enterPlay();
+      gazeRing.visible = state.playing && !state.paused;
+      if (vrWrist.mesh.parent !== camera) vrWrist.attach();
+      wristT -= dt; if (wristT <= 0) { wristT = .5; vrWrist.draw(); }
+    }
+    if (ori) {
+      readSensor();
+      if (needAlign) { align.setFromAxisAngle(up, -heading(sensor)); needAlign = false; }
+      camera.quaternion.copy(align).multiply(sensor);
+    }
+  }
+  function render() {
+    scene.updateMatrixWorld(); stereo.update(camera);
+    renderer.getSize(_sz); const w = _sz.x / 2, h = _sz.y;
+    renderer.setScissorTest(true);
+    renderer.setScissor(0, 0, w, h); renderer.setViewport(0, 0, w, h); renderer.render(scene, stereo.cameraL);
+    renderer.setScissor(w, 0, w, h); renderer.setViewport(w, 0, w, h); renderer.render(scene, stereo.cameraR);
+    renderer.setScissorTest(false); renderer.setViewport(0, 0, _sz.x, _sz.y);
+  }
+  window.addEventListener('orientationchange', () => { needAlign = true; });
+
+  /* ---------- title screen ---------- */
+  const btn = el('cbBtn');
+  if (isPhone()) { btn.hidden = false; el('cbNote').hidden = false; }
+  btn.addEventListener('click', () => { el('cbErr').hidden = true; el('cbSetup').hidden = false; setTimeout(() => el('cbPlay').focus(), 30); });
+  el('cbPlay').addEventListener('click', () => enter('play'));
+  el('cbWatch').addEventListener('click', () => enter('watch'));
+  el('cbCancel').addEventListener('click', () => { el('cbSetup').hidden = true; });
+  el('cbExit').addEventListener('click', exit);
+  return { tick, render, enter, exit, start, get mode() { return mode; }, recenter() { needAlign = true; } };
+})();
+
 function frame() {
   const dt = Math.min(clock.getDelta(), .05); T += dt;
   const xr = renderer.xr.isPresenting;
@@ -4130,11 +4320,13 @@ function frame() {
     pollPad(dt);
     if (state.playing && !state.paused) game(dt);
     else if (!state.playing) attract(dt);
+    CB.tick(dt);
     MP.tick(dt);
     NPC.tick(dt);
   } catch (e) {
     if (frameErr++ < 3) { console.error('Ravenbrook frame error', e); try { vrPanel.flash('Recovered from an error'); } catch (e2) {} }
   }
+  if (cbOn) { CB.render(); return; }
   let drawn = false; try { drawn = ULTRA.render(dt); } catch (e) { drawn = false; }
   if (!drawn) renderer.render(scene, camera);
 }
@@ -4753,7 +4945,7 @@ const ULTRA = (() => {
     FX.grade = new THREE.ShaderPass(GRADE); comp.addPass(FX.grade);
     FX.comp = comp; resize();
   }
-  function want() { return settings.gfx === 'ultra' && !renderer.xr.isPresenting && !FX.failed; }
+  function want() { return settings.gfx === 'ultra' && !renderer.xr.isPresenting && !cbOn && !FX.failed; }
   function ensure() {
     if (FX.comp || FX.loading || FX.failed || !want()) return;
     FX.loading = true;
